@@ -1283,6 +1283,7 @@ describe('McpManagementService', () => {
               transport: 'http',
               url: 'https://project.example.test/mcp',
               auth: 'oauth',
+              clientMetadataUrl: 'https://client.example.test/oauth/metadata.json',
             },
           },
         }),
@@ -1301,7 +1302,9 @@ describe('McpManagementService', () => {
         { cwd: project },
       );
 
-      expect(begin).toHaveBeenCalledWith('oauthable', 'https://project.example.test/mcp');
+      expect(begin).toHaveBeenCalledWith('oauthable', 'https://project.example.test/mcp', {
+        clientMetadataUrl: 'https://client.example.test/oauth/metadata.json',
+      });
       if (result.status === 'authorization-required') {
         await management.cancelServerAuth({ flowId: result.flowId });
       }

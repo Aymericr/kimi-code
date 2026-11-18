@@ -257,7 +257,9 @@ export class McpManagementService extends Disposable implements IMcpManagementSe
     const server = await this.resolveServer(locator, query);
     const config = requireOAuthMcpConfig(server.runtimeName, server.config);
     try {
-      const flow = await this.oauth.beginAuthorization(server.runtimeName, config.url);
+      const flow = await this.oauth.beginAuthorization(server.runtimeName, config.url, {
+        clientMetadataUrl: config.clientMetadataUrl,
+      });
       const flowId = randomUUID();
       const idleTimer = setTimeout(() => {
         const expired = this.authFlows.get(flowId);

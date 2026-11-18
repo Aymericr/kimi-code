@@ -32,6 +32,7 @@ export const McpServerHttpConfigSchema = z.object({
   url: z.string().url(),
   headers: StringRecordSchema.optional(),
   auth: z.literal('oauth').optional(),
+  clientMetadataUrl: z.url().optional(),
   bearerTokenEnvVar: z.string().min(1).optional(),
   ...McpServerCommonFields,
 });
@@ -43,6 +44,7 @@ export const McpServerSseConfigSchema = z.object({
   url: z.string().url(),
   headers: StringRecordSchema.optional(),
   auth: z.literal('oauth').optional(),
+  clientMetadataUrl: z.url().optional(),
   bearerTokenEnvVar: z.string().min(1).optional(),
   ...McpServerCommonFields,
 });

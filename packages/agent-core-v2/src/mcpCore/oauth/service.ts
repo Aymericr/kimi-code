@@ -49,6 +49,7 @@ export interface McpOAuthScheduler {
 
 export interface BeginAuthorizationOptions {
   readonly clientLabel?: string;
+  readonly clientMetadataUrl?: string;
 }
 
 export interface BeginAuthorizationResult {
@@ -145,18 +146,34 @@ export class McpOAuthService {
     return this.shutdown();
   }
 
-  getProvider(serverName: string, serverUrl: string | URL): McpOAuthClientProvider {
+  getProvider(
+    serverName: string,
+    serverUrl: string | URL,
+    configuration?: { readonly clientMetadataUrl?: string },
+  ): McpOAuthClientProvider {
     const storeKey = mcpOAuthStoreKey(serverName, serverUrl);
     let provider = this.providers.get(storeKey);
-    if (provider === undefined) {
-      provider = this.createProvider(serverName, serverUrl);
+    if (
+      provider === undefined ||
+      (configuration !== undefined && provider.clientMetadataUrl !== configuration.clientMetadataUrl)
+    ) {
+      provider = this.createProvider(
+        serverName,
+        serverUrl,
+        undefined,
+        configuration?.clientMetadataUrl,
+      );
       this.providers.set(provider.storeKey, provider);
     }
     return provider;
   }
 
-  async hasTokens(serverName: string, serverUrl: string | URL): Promise<boolean> {
-    return (await this.getProvider(serverName, serverUrl).tokens()) !== undefined;
+  async hasTokens(
+    serverName: string,
+    serverUrl: string | URL,
+    configuration?: { readonly clientMetadataUrl?: string },
+  ): Promise<boolean> {
+    return (await this.getProvider(serverName, serverUrl, configuration).tokens()) !== undefined;
   }
 
   async tokenState(serverName: string, serverUrl: string | URL): Promise<McpOAuthTokenState> {
@@ -438,7 +455,14 @@ export class McpOAuthService {
   ): Promise<SharedAuthorizationFlow> {
     const { signal } = controller;
     const storeKey = mcpOAuthStoreKey(serverName, serverUrl);
-    const provider = this.createProvider(serverName, serverUrl, options.clientLabel);
+    const provider = this.createProvider(
+      serverName,
+      serverUrl,
+      options.clientLabel,
+      'clientMetadataUrl' in options
+        ? options.clientMetadataUrl
+        : this.providers.get(storeKey)?.clientMetadataUrl,
+    );
 
     provider.resetFlow();
 
@@ -677,6 +701,7 @@ export class McpOAuthService {
     serverName: string,
     serverUrl: string | URL,
     clientLabel?: string,
+    clientMetadataUrl?: string,
   ): McpOAuthClientProvider {
     const canonicalUrl = canonicalMcpOAuthResource(serverUrl);
     return new McpOAuthClientProvider({
@@ -685,6 +710,7 @@ export class McpOAuthService {
       store: this.store,
       clientLabel: clientLabel ?? this.clientLabel,
       clientName: this.resolveClientName?.(),
+      clientMetadataUrl,
       now: () => this.scheduler.now(),
       track: (task) => {
         this.trackBackgroundTask(task);

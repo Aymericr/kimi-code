@@ -66,6 +66,7 @@ Optional fields:
 | `cwd` | `string` | stdio | Working directory for the child process |
 | `headers` | `Record<string, string>` | HTTP, SSE | Static request headers appended to every request |
 | `bearerTokenEnvVar` | `string` | HTTP, SSE | Name of an environment variable that contains a bearer token |
+| `clientMetadataUrl` | `string` | HTTP, SSE | URL of a published OAuth client ID metadata document; uses that stable client identity instead of dynamic registration |
 | `enabled` | `boolean` | All | Set to `false` to disable this server |
 | `deferred` | `boolean` | All | Experimental: set to `true` to let the model load this server's tools on demand. Defaults to the global `default_deferred` value (`false` when unset). Prerequisites and behavior: [Loading tools on demand](#loading-tools-on-demand) |
 | `startupTimeoutMs` | `number` | All | Connection timeout from `1` to `2147483647` milliseconds; default `30000` |
@@ -77,7 +78,7 @@ You do not have to set the connection timeout or the single tool-call timeout pe
 
 When a workspace-level MCP server cannot be reached at startup or drops unexpectedly, it reconnects on its own with exponential backoff (the wait between attempts doubles each time): the first retry happens after `[mcp] reconnect_initial_delay_ms` (default `5000`) and the wait never exceeds `[mcp] reconnect_max_delay_ms` (default `300000`), adjustable via `config.toml` or the `KIMI_MCP_RECONNECT_INITIAL_DELAY_MS` / `KIMI_MCP_RECONNECT_MAX_DELAY_MS` environment variables. Its tools come back automatically once the server is reachable again. Servers that cannot recover on their own — an unknown command, an invalid configuration, or static credentials the server rejects — are not retried and stay `failed`, and session-scoped ephemeral servers are not retried either.
 
-HTTP and SSE servers support providing static credentials via `headers` or `bearerTokenEnvVar`. When OAuth is needed, run `/mcp-config login <server-name>` to complete browser-based authorization.
+HTTP and SSE servers support providing static credentials via `headers` or `bearerTokenEnvVar`. When OAuth is needed, run `/mcp-config login <server-name>` to complete browser-based authorization. Set `clientMetadataUrl` when the authorization server supports OAuth client ID metadata documents and requires a reviewed public client identity. The URL becomes the OAuth `client_id`, and Kimi Code CLI skips dynamic registration for that server; leaving it unset preserves the existing dynamic-registration behavior.
 
 Plugins can also declare MCP servers in their manifest. Servers declared by a plugin are enabled by default and can be disabled or re-enabled in `/plugins`: disabling or removing one makes calls from open sessions fail with a removal notice, and adding or enabling a server connects it in open sessions right away. See [Plugins](./plugins.md#mcp-servers-in-plugins) for details.
 

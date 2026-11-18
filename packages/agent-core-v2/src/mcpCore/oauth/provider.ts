@@ -39,6 +39,7 @@ export interface McpOAuthProviderOptions {
   readonly store: McpOAuthStore;
   readonly clientLabel?: string;
   readonly clientName?: string;
+  readonly clientMetadataUrl?: string;
   readonly now?: () => number;
   readonly onTokensSaved?: (tokens: StoredMcpOAuthTokens) => void;
   readonly onCredentialsInvalidated?: (
@@ -50,6 +51,7 @@ export interface McpOAuthProviderOptions {
 export class McpOAuthClientProvider implements OAuthClientProvider {
   readonly storeKey: string;
   readonly serverUrl: string;
+  readonly clientMetadataUrl?: string;
   readonly ready: Promise<void>;
   private readonly serverName: string;
   private readonly store: McpOAuthStore;
@@ -74,6 +76,7 @@ export class McpOAuthClientProvider implements OAuthClientProvider {
     this.clientLabel =
       options.clientLabel ??
       `${options.clientName ?? KIMI_MCP_CLIENT_NAME} (${options.serverName})`;
+    this.clientMetadataUrl = options.clientMetadataUrl;
     this.onTokensSaved = options.onTokensSaved;
     this.onCredentialsInvalidated = options.onCredentialsInvalidated;
     this.now = options.now ?? Date.now;
@@ -211,7 +214,16 @@ export class McpOAuthClientProvider implements OAuthClientProvider {
   async invalidateStaleRegistration(redirectUri: string): Promise<boolean> {
     await this.ready;
     const info = this.clientCache;
-    if (info === undefined || !('redirect_uris' in info)) return false;
+    if (info === undefined) return false;
+    if (this.clientMetadataUrl !== undefined) {
+      if (info.client_id === this.clientMetadataUrl) return false;
+      await this.clearCredentials('client');
+      return true;
+    }
+    if (!('redirect_uris' in info)) {
+      await this.clearCredentials('client');
+      return true;
+    }
     const uris = info.redirect_uris;
     if (!Array.isArray(uris) || uris.length === 0) return false;
     if (uris.includes(redirectUri)) return false;

@@ -227,6 +227,7 @@ function authServerState(
   options: {
     readonly scopesSupported?: string[];
     readonly resourceScopesSupported?: string[];
+    readonly clientIdMetadataDocumentSupported?: boolean;
   } = {},
 ) {
   return {
@@ -236,7 +237,11 @@ function authServerState(
         issuer: authServerUrl,
         authorization_endpoint: `${authServerUrl}/authorize`,
         token_endpoint: `${authServerUrl}/token`,
-        registration_endpoint: `${authServerUrl}/register`,
+        registration_endpoint:
+          options.clientIdMetadataDocumentSupported === true
+            ? undefined
+            : `${authServerUrl}/register`,
+        client_id_metadata_document_supported: options.clientIdMetadataDocumentSupported,
         response_types_supported: ['code'],
         grant_types_supported: ['authorization_code', 'refresh_token'],
         token_endpoint_auth_methods_supported: ['none'],
@@ -836,6 +841,57 @@ describe('McpOAuthService interactive flow serialization', () => {
     const flow = await fixture.service.beginAuthorization(SERVER_NAME, SERVER_URL);
 
     expect(authServer.counts.register).toBe(1);
+    await expect(
+      fixture.service.getProvider(SERVER_NAME, SERVER_URL).clientInformation(),
+    ).resolves.toMatchObject({ client_id: 'test-client-1' });
+    await flow.cancel();
+  }, 15000);
+
+  it('uses a configured client metadata URL without dynamic registration', async () => {
+    const fixture = makeFixture();
+    cleanups.push(() => fixture.service.dispose());
+    const authServer = await startFakeAuthServer();
+    const clientMetadataUrl = 'https://client.example.test/oauth/metadata.json';
+    await fixture.service.hasTokens(SERVER_NAME, SERVER_URL, { clientMetadataUrl });
+    const provider = fixture.service.getProvider(SERVER_NAME, SERVER_URL);
+    await provider.saveDiscoveryState(
+      authServerState(authServer.url, { clientIdMetadataDocumentSupported: true }).discovery,
+    );
+
+    const flow = await fixture.service.beginAuthorization(SERVER_NAME, SERVER_URL);
+
+    expect(authServer.counts.register).toBe(0);
+    expect(flow.authorizationUrl.searchParams.get('client_id')).toBe(clientMetadataUrl);
+    const redirectUri = new URL(flow.authorizationUrl.searchParams.get('redirect_uri')!);
+    expect(redirectUri.hostname).toBe('127.0.0.1');
+    expect(redirectUri.pathname).toBe('/callback');
+    expect(redirectUri.port).not.toBe('');
+    await expect(
+      fixture.service.getProvider(SERVER_NAME, SERVER_URL).clientInformation(),
+    ).resolves.toMatchObject({ client_id: clientMetadataUrl });
+
+    const completion = flow.complete({ timeoutMs: 10_000 });
+    await deliverCallback(flow);
+    await completion;
+    expect(authServer.counts.exchange).toBe(1);
+  }, 15000);
+
+  it('returns to dynamic registration when the client metadata URL is removed', async () => {
+    const fixture = makeFixture();
+    cleanups.push(() => fixture.service.dispose());
+    const authServer = await startFakeAuthServer();
+    const clientMetadataUrl = 'https://client.example.test/oauth/metadata.json';
+    await fixture.service.hasTokens(SERVER_NAME, SERVER_URL, { clientMetadataUrl });
+    const provider = fixture.service.getProvider(SERVER_NAME, SERVER_URL);
+    await provider.saveClientInformation({ client_id: clientMetadataUrl });
+    await provider.saveDiscoveryState(authServerState(authServer.url).discovery);
+
+    const flow = await fixture.service.beginAuthorization(SERVER_NAME, SERVER_URL, {
+      clientMetadataUrl: undefined,
+    });
+
+    expect(authServer.counts.register).toBe(1);
+    expect(flow.authorizationUrl.searchParams.get('client_id')).toBe('test-client-1');
     await expect(
       fixture.service.getProvider(SERVER_NAME, SERVER_URL).clientInformation(),
     ).resolves.toMatchObject({ client_id: 'test-client-1' });

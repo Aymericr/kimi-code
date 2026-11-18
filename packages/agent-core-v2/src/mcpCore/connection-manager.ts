@@ -838,8 +838,9 @@ export class McpConnectionManager implements McpConnectionView {
     if (oauthService === undefined) return undefined;
     if (!isRemoteMcpConfig(config)) return undefined;
     if (config.bearerTokenEnvVar !== undefined) return undefined;
-    if (!(await oauthService.hasTokens(name, config.url))) return undefined;
-    return oauthService.getProvider(name, config.url);
+    const configuration = { clientMetadataUrl: config.clientMetadataUrl };
+    if (!(await oauthService.hasTokens(name, config.url, configuration))) return undefined;
+    return oauthService.getProvider(name, config.url, configuration);
   }
 
   private shouldMarkNeedsAuth(entry: InternalEntry, error: unknown): boolean {

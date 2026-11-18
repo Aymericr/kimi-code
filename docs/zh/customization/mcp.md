@@ -66,6 +66,7 @@ MCP server 配置写在 `mcp.json` 中，分两层：
 | `cwd` | `string` | stdio | 子进程工作目录 |
 | `headers` | `Record<string, string>` | HTTP、SSE | 附加到每次请求的静态请求头 |
 | `bearerTokenEnvVar` | `string` | HTTP、SSE | 存放 bearer token 的环境变量名 |
+| `clientMetadataUrl` | `string` | HTTP、SSE | 已发布的 OAuth client ID 元数据文档 URL；使用该固定客户端身份，而不是动态注册 |
 | `enabled` | `boolean` | 全部 | 设为 `false` 可禁用该 server |
 | `deferred` | `boolean` | 全部 | 实验功能：设为 `true` 时该 server 的工具由模型按需加载，缺省时取全局 `default_deferred`（未设置则为 `false`）。前提与行为见 [按需加载工具](#按需加载工具) |
 | `startupTimeoutMs` | `number` | 全部 | 连接超时，取值范围为 `1` 到 `2147483647` 毫秒，默认 `30000` |
@@ -77,7 +78,7 @@ MCP server 配置写在 `mcp.json` 中，分两层：
 
 workspace 级 MCP server 启动时连不上或意外断连时，会自动按指数退避（每次尝试后等待时间翻倍）重连：首次重试等待 `[mcp] reconnect_initial_delay_ms`（默认 `5000`），等待上限为 `[mcp] reconnect_max_delay_ms`（默认 `300000`），可在 `config.toml` 或环境变量 `KIMI_MCP_RECONNECT_INITIAL_DELAY_MS` / `KIMI_MCP_RECONNECT_MAX_DELAY_MS` 调整。server 恢复可达后，工具会自动回来。无法自行恢复的失败——命令不存在、配置非法、server 拒绝静态凭证——不会重试并保持 `failed`；session 级临时挂载的 server 同样不重试。
 
-HTTP 与 SSE server 支持通过 `headers` 或 `bearerTokenEnvVar` 提供静态凭证。需要 OAuth 时，运行 `/mcp-config login <server-name>` 完成浏览器授权。
+HTTP 与 SSE server 支持通过 `headers` 或 `bearerTokenEnvVar` 提供静态凭证。需要 OAuth 时，运行 `/mcp-config login <server-name>` 完成浏览器授权。授权服务器支持 OAuth client ID 元数据文档并要求经过审核的公开客户端身份时，可设置 `clientMetadataUrl`。该 URL 会作为 OAuth `client_id`，Kimi Code CLI 不再为此 server 动态注册；不设置时仍沿用现有的动态注册行为。
 
 Plugins 也可以在 manifest 中声明 MCP servers。Plugin 声明的 servers 默认启用，可以在 `/plugins` 中禁用或重新启用：禁用或移除后，已打开会话中的工具调用会失败并返回移除提示；新增或启用 server 会立即连接到已打开的会话。详见 [Plugins](./plugins.md#plugin-中的-mcp-servers)。
 
